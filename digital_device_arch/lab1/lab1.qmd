@@ -1,0 +1,105 @@
+```{python}
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Параметры
+t_s = 1e-3  # Время моделирования (1 мс)
+h = 1e-6    # Шаг по времени (1 мкс)
+t = np.arange(0, t_s, h)  # Массив времени
+
+# Генерация прямоугольных импульсов
+def generate_signal(frequency):
+    signal = 0.5 + 4 * (np.sin(2 * np.pi * frequency * t) > 0)  # 0.5 и 4.5 В
+    return signal
+
+# Моделирование ёмкостной составляющей
+def simulate_capacitance(signal, T):
+    U = np.zeros_like(signal)
+    for n in range(len(signal) - 1):
+        U[n + 1] = U[n] + h * (signal[n] - U[n]) / T
+    return U
+
+# Добавление помех
+def add_noise(signal, amplitude):
+    noise = amplitude * (2 * np.random.rand(len(signal)) - 1)  # Случайная составляющая
+    return signal + noise
+
+# Логический каскад с гистерезисом
+def logic_cascade(U, Umin, Umax):
+    output = np.zeros_like(U)
+    for n in range(1, len(U)):
+        if output[n - 1] == 0:
+            if U[n] > Umax:
+                output[n] = 1
+            else:
+                output[n] = 0
+        else:
+            if U[n] < Umin:
+                output[n] = 0
+            else:
+                output[n] = 1
+    return output
+
+# Частоты сигналов
+frequencies = [5000, 10000]  # 5 кГц и 10 кГц
+
+# Постоянные времени
+T1 = 1e-5
+T2 = 2e-5
+
+# Запрещённые зоны
+Umin1, Umax1 = 1.5, 3.5
+Umin2, Umax2 = 2.0, 4.0
+
+# Амплитуды помех
+A1, A2 = 0.1, 0.3
+
+# Визуализация
+for freq in frequencies:
+    # Генерация сигнала
+    Y = generate_signal(freq)
+    
+    # Моделирование ёмкостной составляющей
+    U1 = simulate_capacitance(Y, T1)
+    U2 = simulate_capacitance(Y, T2)
+    
+    # Добавление помех
+    U1_noise = add_noise(U1, A1)
+    U2_noise = add_noise(U2, A2)
+    
+    # Логический каскад
+    output1 = logic_cascade(U1_noise, Umin1, Umax1)
+    output2 = logic_cascade(U2_noise, Umin2, Umax2)
+    
+    # Построение графиков
+    plt.figure(figsize=(12, 8))
+    
+    # График 1: Сигнал с генератора
+    plt.subplot(3, 1, 1)
+    plt.plot(t, Y, color='green', label=f'Генератор {freq} Гц')
+    plt.title(f'Сигнал с генератора ({freq} Гц)')
+    plt.xlabel('Время (с)')
+    plt.ylabel('Напряжение (В)')
+    plt.legend()
+    
+    # График 2: Сигнал с ёмкостной составляющей и помехами
+    plt.subplot(3, 1, 2)
+    plt.plot(t, U1_noise, color='red', label=f'С ёмкостью T1={T1}, помеха A1={A1}')
+    plt.plot(t, U2_noise, color='green', label=f'С ёмкостью T2={T2}, помеха A2={A2}')
+    plt.title('Сигнал с ёмкостью и помехами')
+    plt.xlabel('Время (с)')
+    plt.ylabel('Напряжение (В)')
+    plt.legend()
+    
+    # График 3: Выходной сигнал логического каскада
+    plt.subplot(3, 1, 3)
+    plt.plot(t, output1, color='red', label=f'Выход (Umin1={Umin1}, Umax1={Umax1})')
+    plt.plot(t, output2, color='green', label=f'Выход (Umin2={Umin2}, Umax2={Umax2})')
+    plt.title('Выходной сигнал логического каскада')
+    plt.xlabel('Время (с)')
+    plt.ylabel('Логический уровень')
+    plt.legend()
+    
+    plt.tight_layout()
+    plt.show()
+```
