@@ -1,0 +1,93 @@
+```{python}
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Параметры сигналов
+T = 20  # период сигнала в мкс
+h = 1   # шаг по времени в мкс
+time = np.arange(0, 100, h)  # время моделирования
+
+# 1. Синхросигнал с генератора (меандр с периодом T)
+clock_signal = np.where((time % T) < T/2, 1, 0)
+
+# 2. Функции для генерации сигналов SDR и DDR
+def hex_to_bits(hex_str):
+    """Конвертация HEX в битовый массив (младший бит справа)"""
+    num = int(hex_str, 16)
+    return [(num >> i) & 1 for i in range(7, -1, -1)]
+
+def generate_sdr(hex_str, clock):
+    """Генерация SDR сигнала"""
+    bits = hex_to_bits(hex_str)
+    sdr_signal = np.zeros_like(clock)
+    for i, t in enumerate(time):
+        if i % T == 0:  # фронт синхроимпульса
+            bit_idx = (i // T) % len(bits)
+            sdr_signal[i:i+T] = bits[bit_idx]
+    return sdr_signal
+
+def generate_ddr(hex_str, clock):
+    """Генерация DDR сигнала"""
+    bits = hex_to_bits(hex_str)
+    ddr_signal = np.zeros_like(clock)
+    for i, t in enumerate(time):
+        if i % (T//2) == 0:  # фронт и спад синхроимпульса
+            bit_idx = (i // (T//2)) % len(bits)
+            ddr_signal[i:i+(T//2)] = bits[bit_idx]
+    return ddr_signal
+
+# 3. Генерация сигналов для заданных чисел
+numbers = ['7A', 'FF', '0F']
+signals = {
+    'Clock': clock_signal,
+    'SDR_7A': generate_sdr('7A', clock_signal),
+    'SDR_FF': generate_sdr('FF', clock_signal),
+    'SDR_0F': generate_sdr('0F', clock_signal),
+    'DDR_7A': generate_ddr('7A', clock_signal),
+    'DDR_FF': generate_ddr('FF', clock_signal),
+    'DDR_0F': generate_ddr('0F', clock_signal)
+}
+
+# 4. Визуализация
+plt.figure(figsize=(12, 10))
+
+# Синхросигнал
+plt.subplot(4, 1, 1)
+plt.step(time, signals['Clock'], where='post')
+plt.title('Рисунок 1. Синхросигнал с генератора (T=20 мкс)')
+plt.ylim(-0.1, 1.1)
+
+# SDR сигналы
+plt.subplot(4, 1, 2)
+for num in numbers:
+    plt.step(time, signals[f'SDR_{num}'], where='post', label=f'SDR {num}')
+plt.title('Рисунок 2. Сигналы SDR (одинарная плотность)')
+plt.legend()
+plt.ylim(-0.1, 1.1)
+
+# DDR сигналы
+plt.subplot(4, 1, 3)
+for num in numbers:
+    plt.step(time, signals[f'DDR_{num}'], where='post', label=f'DDR {num}')
+plt.title('Рисунок 3. Сигналы DDR (двойная плотность)')
+plt.legend()
+plt.ylim(-0.1, 1.1)
+
+# Сравнение SDR и DDR для 7A
+plt.subplot(4, 1, 4)
+plt.step(time, signals['SDR_7A'], where='post', label='SDR 7A')
+plt.step(time, signals['DDR_7A'], where='post', label='DDR 7A')
+plt.title('Сравнение SDR и DDR для числа 7A')
+plt.legend()
+plt.ylim(-0.1, 1.1)
+
+plt.tight_layout()
+plt.show()
+
+# 5. Выводы
+print("Выводы:")
+print("1. DDR передает данные в 2 раза быстрее за счет использования фронта и спада синхросигнала")
+print("2. Длительность DDR сигнала меньше, так как биты передаются чаще")
+print("3. Для передачи одного байта SDR требует 8 периодов T, а DDR - только 4")
+```
